@@ -19,7 +19,7 @@ var config struct {
 var cli struct {
 	Dir     string `required:"" short:"d" type:"existingdir" placeholder:"DIR" help:"Path to the directory with localization files."`
 	Pattern string `optional:"" short:"p" placeholder:"PATTERN" help:"Localization file regexp pattern."`
-	Package string `required:"" short:"P" placeholder:"NAME" help:"Package name."`
+	Package string `optional:"" short:"P" placeholder:"NAME" help:"Package name."`
 	Output  string `required:"" short:"o" placeholder:"DIR" help:"Path to output directory."`
 }
 
@@ -28,6 +28,10 @@ func InitConfig() {
 
 	if cli.Pattern == "" {
 		cli.Pattern = `([a-z_]+)\.([a-z_]+)\.(yaml|yml|json|toml)`
+	}
+
+	if cli.Package == "" {
+		cli.Package = "l10n"
 	}
 
 	config.Directory = cli.Dir
