@@ -62,9 +62,3 @@ linters:
     - unparam
     - unused
     - whitespace
-
-issues:
-  exclude-rules:
-    - linters:
-      - govet
-      text: declaration of "(err|ctx)" shadows declaration at
