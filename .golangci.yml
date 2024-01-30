@@ -1,0 +1,70 @@
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  exhaustive:
+    check-generated: false
+    default-signifies-exhaustive: true
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport
+      - unnecessaryBlock
+      - octalLiteral
+  gofumpt:
+    extra-rules: false
+  misspell:
+    locale: US
+  nestif:
+    min-complexity: 4
+
+linters:
+  disable-all: true
+  enable:
+    - asciicheck
+    - bodyclose
+    - dogsled
+    - durationcheck
+    - errcheck
+    - exhaustive
+    - exportloopref
+    - forbidigo
+    - gochecknoinits
+    - gocritic
+    - godot
+    - godox
+    - goerr113
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - noctx
+    - nolintlint
+    - predeclared
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - stylecheck
+    - thelper
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+
+issues:
+  exclude-rules:
+    - linters:
+      - govet
+      text: declaration of "(err|ctx)" shadows declaration at
