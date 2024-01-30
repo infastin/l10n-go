@@ -56,7 +56,9 @@ func GetLocalizationFiles() (files []LocalizationFile, err error) {
 }
 
 func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err error) {
-	var scopeNames []map[string]struct{}
+	// Slice of sets of scope names
+	// Each set corresponds to the localization at the same index
+	var locsScopeNames []map[string]struct{}
 
 	for _, file := range files {
 		data, err := os.ReadFile(file.Path)
@@ -88,6 +90,8 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err e
 		}
 
 		locIdx := localizationIndex(locs, file.Lang)
+
+		// If localization is not found, create it and add scopes to it
 		if locIdx == -1 {
 			locs = append(locs, Localization{
 				Name:   file.Name,
@@ -95,30 +99,35 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err e
 				Scopes: scopes,
 			})
 
-			scopeNames = append(scopeNames, make(map[string]struct{}))
-			scopeName := scopeNames[len(scopeNames)-1]
+			locsScopeNames = append(locsScopeNames, make(map[string]struct{}))
+			locScopeNames := locsScopeNames[len(locsScopeNames)-1]
 
+			// Add scope names to the corresponding set so it is possible
+			// to quickly check for duplicate messages
 			for i := 0; i < len(scopes); i++ {
-				scopeName[scopes[i].Name] = struct{}{}
+				locScopeNames[scopes[i].Name] = struct{}{}
 			}
 
 			continue
 		}
 
+		// If localization is found, check for duplicate messages
+		// and add new messages
+
 		loc := &locs[locIdx]
-		scopeName := &scopeNames[locIdx]
+		locScopeName := &locsScopeNames[locIdx]
 
 		for i := 0; i < len(scopes); i++ {
 			scope := &scopes[i]
 
-			if _, ok := (*scopeName)[scope.Name]; ok {
+			if _, ok := (*locScopeName)[scope.Name]; ok {
 				return nil, NewError(ErrInvalidLocalization,
 					ErrorValueStr(loc.Lang.String()),
 					NewDuplicateMessageError(scope.Name),
 				)
 			}
 
-			(*scopeName)[scope.Name] = struct{}{}
+			(*locScopeName)[scope.Name] = struct{}{}
 		}
 
 		loc.Scopes = append(loc.Scopes, scopes...)
@@ -127,13 +136,17 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err e
 	return locs, nil
 }
 
+// Checks whether different localizations contain all the same messages.
+// Also checks if there are any localizations at all.
 func CheckLocalizations(locs []Localization) (err error) {
 	if len(locs) == 0 {
 		return NewError(ErrNoLocalizationsFound)
 	}
 
-	baseMsgs := make(map[string]struct{})
+	// We consider the first localization as the "base" one
 	baseLoc := &locs[0]
+	// Set of localization messages of the base localization
+	baseMsgs := make(map[string]struct{})
 
 	for i := 0; i < len(baseLoc.Scopes); i++ {
 		scope := &locs[0].Scopes[i]
@@ -142,8 +155,11 @@ func CheckLocalizations(locs []Localization) (err error) {
 
 	for i := 1; i < len(locs); i++ {
 		loc := &locs[i]
+		// Set of localization messages
 		msgs := make(map[string]struct{})
 
+		// Add messages to the set and
+		// check for unspecified messages in base localization
 		for j := 0; j < len(loc.Scopes); j++ {
 			scope := &loc.Scopes[j]
 
@@ -157,6 +173,7 @@ func CheckLocalizations(locs []Localization) (err error) {
 			msgs[scope.Name] = struct{}{}
 		}
 
+		// Check for unspecified messages in localization
 		for msg := range baseMsgs {
 			if _, ok := msgs[msg]; !ok {
 				return NewError(ErrInvalidLocalization,
