@@ -4,11 +4,13 @@ import (
 	"go/ast"
 	"go/token"
 	"strconv"
+	"strings"
 )
 
 type Generator interface {
 	IsZero() bool
 	Generate(loc *Localization, scope *MessageScope, builderName string, list *[]ast.Stmt)
+	SimpleGenerate(loc *Localization, scope *MessageScope, list *[]ast.Stmt)
 	GetArgumentNames() (args []string)
 }
 
@@ -214,7 +216,12 @@ func generateMessages(loc *Localization) (file *ast.File) {
 	}
 
 	for i := 0; i < len(loc.Scopes); i++ {
-		generateMessage(loc, &loc.Scopes[i], &file.Decls)
+		scope := &loc.Scopes[i]
+		if scope.IsSimple() {
+			generateSimpleMessage(loc, scope, &file.Decls)
+		} else {
+			generateMessage(loc, scope, &file.Decls)
+		}
 	}
 
 	for _, imp := range loc.Imports {
@@ -306,6 +313,42 @@ func generateMessage(loc *Localization, scope *MessageScope, decls *[]ast.Decl) 
 	*decls = append(*decls, funcDecl)
 }
 
+func generateSimpleMessage(loc *Localization, scope *MessageScope, decls *[]ast.Decl) {
+	funcDecl := &ast.FuncDecl{
+		Name: ast.NewIdent(getMessageFuncName(scope)),
+		Recv: &ast.FieldList{
+			List: []*ast.Field{
+				{
+					Names: []*ast.Ident{ast.NewIdent(getLocalizerName(loc))},
+					Type:  ast.NewIdent(getLocalizerTypeName(loc)),
+				},
+			},
+		},
+		Type: &ast.FuncType{
+			Params: &ast.FieldList{},
+			Results: &ast.FieldList{
+				List: []*ast.Field{
+					{Type: ast.NewIdent("string")},
+				},
+			},
+		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{},
+		},
+	}
+
+	generators := []Generator{&scope.Plural, scope.String}
+
+	for _, gen := range generators {
+		if !gen.IsZero() {
+			gen.SimpleGenerate(loc, scope, &funcDecl.Body.List)
+			break
+		}
+	}
+
+	*decls = append(*decls, funcDecl)
+}
+
 func generatePlural(loc *Localization, scope *MessageScope, plural *Plural, builderName string, list *[]ast.Stmt) {
 	generators := []struct {
 		Gen   Generator
@@ -349,8 +392,55 @@ func generatePlural(loc *Localization, scope *MessageScope, plural *Plural, buil
 	*list = append(*list, switchStmt)
 }
 
+func generateSimplePlural(loc *Localization, scope *MessageScope, plural *Plural, list *[]ast.Stmt) {
+	generators := []struct {
+		Gen   Generator
+		Op    token.Token
+		Value string
+	}{
+		{plural.Zero, token.EQL, "0"},
+		{plural.One, token.EQL, "1"},
+		{plural.Many, token.GTR, "1"},
+		{plural.Other, token.ILLEGAL, ""},
+	}
+
+	switchStmt := &ast.SwitchStmt{
+		Body: &ast.BlockStmt{},
+	}
+
+	for _, gen := range generators {
+		if gen.Gen.IsZero() {
+			continue
+		}
+
+		caseClause := &ast.CaseClause{}
+
+		if gen.Op != token.ILLEGAL {
+			caseClause.List = []ast.Expr{
+				&ast.BinaryExpr{
+					X:  ast.NewIdent(plural.Arg),
+					Op: gen.Op,
+					Y: &ast.BasicLit{
+						Kind:  token.INT,
+						Value: gen.Value,
+					},
+				},
+			}
+		}
+
+		gen.Gen.SimpleGenerate(loc, scope, &caseClause.Body)
+		switchStmt.Body.List = append(switchStmt.Body.List, caseClause)
+	}
+
+	*list = append(*list, switchStmt)
+}
+
 func (p *Plural) Generate(loc *Localization, scope *MessageScope, builderName string, list *[]ast.Stmt) {
 	generatePlural(loc, scope, p, builderName, list)
+}
+
+func (p *Plural) SimpleGenerate(loc *Localization, scope *MessageScope, list *[]ast.Stmt) {
+	generateSimplePlural(loc, scope, p, list)
 }
 
 func generateFormatParts(
@@ -374,8 +464,31 @@ func generateFormatParts(
 	}
 }
 
+func generateSimpleFormatParts(_ *Localization, _ *MessageScope, parts FormatParts, list *[]ast.Stmt) {
+	var b strings.Builder
+
+	for _, part := range parts {
+		if part, ok := part.(string); ok {
+			b.WriteString(part)
+		}
+	}
+
+	*list = append(*list, &ast.ReturnStmt{
+		Results: []ast.Expr{
+			&ast.BasicLit{
+				Kind:  token.STRING,
+				Value: strconv.Quote(b.String()),
+			},
+		},
+	})
+}
+
 func (f FormatParts) Generate(loc *Localization, scope *MessageScope, builderName string, list *[]ast.Stmt) {
 	generateFormatParts(loc, scope, f, builderName, list)
+}
+
+func (f FormatParts) SimpleGenerate(loc *Localization, scope *MessageScope, list *[]ast.Stmt) {
+	generateSimpleFormatParts(loc, scope, f, list)
 }
 
 func generateString(_ *Localization, _ *MessageScope, str, builderName string, list *[]ast.Stmt) {

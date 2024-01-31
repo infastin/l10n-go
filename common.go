@@ -106,6 +106,10 @@ type MessageScope struct {
 	Arguments []Argument
 }
 
+func (s *MessageScope) IsSimple() bool {
+	return len(s.Arguments) == 0 && len(s.Variables) == 0
+}
+
 type GoImport struct {
 	Import  string
 	Package string
