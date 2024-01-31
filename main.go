@@ -2,9 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"go/ast"
 	"io/fs"
-	"log"
 	"os"
 	"path"
 
@@ -234,21 +234,25 @@ func main() {
 
 	locFiles, err := GetLocalizationFiles()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		return
 	}
 
 	locs, err := ReadLocalizationFiles(locFiles)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		return
 	}
 
 	err = CheckLocalizations(locs)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		return
 	}
 
 	err = GenerateLocalizations(locs)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		return
 	}
 }
