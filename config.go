@@ -6,7 +6,7 @@ import (
 	"github.com/alecthomas/kong"
 )
 
-const cliVersion = "v1.0.0"
+const cliVersion = "v1.0.1"
 
 var config struct {
 	Directory         string
