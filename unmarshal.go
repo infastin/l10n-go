@@ -1,7 +1,8 @@
 package main
 
 import (
-	"sort"
+	"slices"
+	"strings"
 )
 
 func unmarshalMessages(in []byte, unmarshaler func(in []byte, out any) (err error),
@@ -39,16 +40,16 @@ func unmarshalMessages(in []byte, unmarshaler func(in []byte, out any) (err erro
 			return nil, NewFieldError(ErrCouldNotUnmarshal, name, err)
 		}
 
-		sort.Slice(message.Variables, func(i, j int) bool {
-			return message.Variables[i].Name < message.Variables[j].Name
+		slices.SortFunc(message.Variables, func(a, b Variable) int {
+			return strings.Compare(a.Name, b.Name)
 		})
 
 		message.Name = name
 		messages = append(messages, message)
 	}
 
-	sort.Slice(messages, func(i, j int) bool {
-		return messages[i].Name < messages[j].Name
+	slices.SortFunc(messages, func(a, b Message) int {
+		return strings.Compare(a.Name, b.Name)
 	})
 
 	return messages, nil
