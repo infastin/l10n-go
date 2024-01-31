@@ -161,6 +161,7 @@ func generateGeneralTable(locs []Localization, decls *[]ast.Decl) {
 
 func generateGeneralFuncs(locs []Localization, decls *[]ast.Decl) {
 	generateGeneralFuncNew(locs, decls)
+	generateGeneralFuncLang(locs, decls)
 }
 
 func generateGeneralFuncNew(_ []Localization, decls *[]ast.Decl) {
@@ -211,24 +212,73 @@ func generateGeneralFuncNew(_ []Localization, decls *[]ast.Decl) {
 	})
 }
 
-func generateMessages(loc *Localization) (file *ast.File) {
-	importDecl := &ast.GenDecl{
-		Tok:   token.IMPORT,
-		Specs: []ast.Spec{},
+func generateGeneralFuncLang(locs []Localization, decls *[]ast.Decl) {
+	switchStmt := &ast.TypeSwitchStmt{
+		Assign: &ast.ExprStmt{
+			X: &ast.TypeAssertExpr{
+				X: ast.NewIdent("loc"),
+			},
+		},
+		Body: &ast.BlockStmt{},
 	}
 
-	typeDecl := &ast.GenDecl{
-		Tok: token.TYPE,
-		Specs: []ast.Spec{
-			&ast.TypeSpec{
-				Name: ast.NewIdent(getLocalizerTypeName(loc)),
-				Type: &ast.StructType{
-					Fields: &ast.FieldList{},
+	funcDecl := &ast.FuncDecl{
+		Name: ast.NewIdent("Language"),
+		Type: &ast.FuncType{
+			Params: &ast.FieldList{
+				List: []*ast.Field{
+					{
+						Names: []*ast.Ident{ast.NewIdent("loc")},
+						Type:  ast.NewIdent("Localizer"),
+					},
+				},
+			},
+			Results: &ast.FieldList{
+				List: []*ast.Field{
+					{Type: ast.NewIdent("string")},
 				},
 			},
 		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{switchStmt},
+		},
 	}
 
+	for i := 0; i < len(locs); i++ {
+		switchStmt.Body.List = append(switchStmt.Body.List, &ast.CaseClause{
+			List: []ast.Expr{
+				ast.NewIdent(getLocalizerTypeName(&locs[i])),
+			},
+			Body: []ast.Stmt{
+				&ast.ReturnStmt{
+					Results: []ast.Expr{
+						&ast.BasicLit{
+							Kind:  token.STRING,
+							Value: strconv.Quote(locs[i].Lang.String()),
+						},
+					},
+				},
+			},
+		})
+	}
+
+	switchStmt.Body.List = append(switchStmt.Body.List, &ast.CaseClause{
+		Body: []ast.Stmt{
+			&ast.ReturnStmt{
+				Results: []ast.Expr{
+					&ast.BasicLit{
+						Kind:  token.STRING,
+						Value: `""`,
+					},
+				},
+			},
+		},
+	})
+
+	*decls = append(*decls, funcDecl)
+}
+
+func generateMessages(loc *Localization) (file *ast.File) {
 	file = &ast.File{
 		Name:  ast.NewIdent(config.PackageName),
 		Decls: []ast.Decl{},
@@ -251,6 +301,20 @@ func generateMessages(loc *Localization) (file *ast.File) {
 		}
 	}
 
+	generateMessagesImportDecl(loc, &file.Decls)
+	generateMessagesTypeDecl(loc, &file.Decls)
+
+	file.Decls = append(file.Decls, decls...)
+
+	return file
+}
+
+func generateMessagesImportDecl(loc *Localization, decls *[]ast.Decl) {
+	importDecl := &ast.GenDecl{
+		Tok:   token.IMPORT,
+		Specs: []ast.Spec{},
+	}
+
 	for _, imp := range loc.Imports {
 		importDecl.Specs = append(importDecl.Specs, &ast.ImportSpec{
 			Path: &ast.BasicLit{
@@ -261,13 +325,24 @@ func generateMessages(loc *Localization) (file *ast.File) {
 	}
 
 	if len(importDecl.Specs) != 0 {
-		file.Decls = append(file.Decls, importDecl)
+		*decls = append(*decls, importDecl)
+	}
+}
+
+func generateMessagesTypeDecl(loc *Localization, decls *[]ast.Decl) {
+	typeDecl := &ast.GenDecl{
+		Tok: token.TYPE,
+		Specs: []ast.Spec{
+			&ast.TypeSpec{
+				Name: ast.NewIdent(getLocalizerTypeName(loc)),
+				Type: &ast.StructType{
+					Fields: &ast.FieldList{},
+				},
+			},
+		},
 	}
 
-	file.Decls = append(file.Decls, typeDecl)
-	file.Decls = append(file.Decls, decls...)
-
-	return file
+	*decls = append(*decls, typeDecl)
 }
 
 func generateMessage(loc *Localization, scope *MessageScope, decls *[]ast.Decl) {

@@ -212,6 +212,8 @@ func (p *astPrinter) writeExpr(e ast.Expr) {
 		p.writeMapType(e)
 	case *ast.ArrayType:
 		p.writeArrayType(e)
+	case *ast.TypeAssertExpr:
+		p.writeTypeAssertExpr(e)
 	}
 }
 
@@ -369,6 +371,19 @@ func (p *astPrinter) writeArrayType(a *ast.ArrayType) {
 	p.writeExpr(a.Elt)
 }
 
+func (p *astPrinter) writeTypeAssertExpr(t *ast.TypeAssertExpr) {
+	p.writeExpr(t.X)
+	p.b.WriteString(".(")
+
+	if t.Type != nil {
+		p.writeExpr(t.Type)
+	} else {
+		p.b.WriteString("type")
+	}
+
+	p.b.WriteByte(')')
+}
+
 func (p *astPrinter) writeStmt(s ast.Stmt) {
 	switch s := s.(type) {
 	case *ast.ExprStmt:
@@ -377,6 +392,8 @@ func (p *astPrinter) writeStmt(s ast.Stmt) {
 		p.writeDeclStmt(s)
 	case *ast.SwitchStmt:
 		p.writeSwitchStmt(s)
+	case *ast.TypeSwitchStmt:
+		p.writeTypeSwitchStmt(s)
 	case *ast.CaseClause:
 		p.writeCaseClause(s)
 	case *ast.AssignStmt:
@@ -411,6 +428,31 @@ func (p *astPrinter) writeSwitchStmt(s *ast.SwitchStmt) {
 	p.b.WriteString("{\n")
 
 	for _, stmt := range s.Body.List {
+		p.indentLine()
+		p.writeStmt(stmt)
+		p.b.WriteByte('\n')
+	}
+
+	p.indentLine()
+	p.b.WriteByte('}')
+}
+
+func (p *astPrinter) writeTypeSwitchStmt(t *ast.TypeSwitchStmt) {
+	p.b.WriteString("switch ")
+
+	if t.Init != nil {
+		p.writeStmt(t.Init)
+		p.b.WriteString("; ")
+	}
+
+	if t.Assign != nil {
+		p.writeStmt(t.Assign)
+		p.b.WriteByte(' ')
+	}
+
+	p.b.WriteString("{\n")
+
+	for _, stmt := range t.Body.List {
 		p.indentLine()
 		p.writeStmt(stmt)
 		p.b.WriteByte('\n')
