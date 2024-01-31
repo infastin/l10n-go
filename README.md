@@ -130,7 +130,7 @@ one directory whose names match this regexp pattern:
 Or, to put it more simply: `{{.Name}}.{{.Lang}}.{{.Ext}}`.
 
 Also you can change the regexp pattern with `-p, --pattern=PATTERN` flag to `go-l10n` command.
-But it must contain three groups in following order:
+But it must contain three groups in the following order:
 1. Name — will be used when generating files, but doesn't really matter
 2. Language — `en`, `de`, `es`, etc
 3. Extension — `yaml`, `yml`, `json` or `toml`
