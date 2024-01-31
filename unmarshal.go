@@ -40,7 +40,7 @@ func unmarshalMessages(in []byte, unmarshaler func(in []byte, out any) (err erro
 			return nil, NewFieldError(ErrCouldNotUnmarshal, name, err)
 		}
 
-		slices.SortFunc(message.Variables, func(a, b Variable) int {
+		slices.SortStableFunc(message.Variables, func(a, b Variable) int {
 			return strings.Compare(a.Name, b.Name)
 		})
 
@@ -48,7 +48,7 @@ func unmarshalMessages(in []byte, unmarshaler func(in []byte, out any) (err erro
 		messages = append(messages, message)
 	}
 
-	slices.SortFunc(messages, func(a, b Message) int {
+	slices.SortStableFunc(messages, func(a, b Message) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
