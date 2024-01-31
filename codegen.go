@@ -10,7 +10,6 @@ import (
 type Generator interface {
 	IsZero() bool
 	Generate(loc *Localization, scope *MessageScope, builderName string, list *[]ast.Stmt)
-	SimpleGenerate(loc *Localization, scope *MessageScope, list *[]ast.Stmt)
 	GetArgumentNames() (args []string)
 }
 
@@ -448,13 +447,24 @@ func generateSimpleMessage(loc *Localization, scope *MessageScope, decls *[]ast.
 		},
 	}
 
+	for i := 0; i < len(scope.Arguments); i++ {
+		funcDecl.Type.Params.List = append(funcDecl.Type.Params.List, &ast.Field{
+			Names: []*ast.Ident{ast.NewIdent(scope.Arguments[i].Name)},
+			Type:  getPackageFieldType(&scope.Arguments[i]),
+		})
+	}
+
 	generators := []Generator{&scope.Plural, scope.String}
 
 	for _, gen := range generators {
 		if !gen.IsZero() {
-			gen.SimpleGenerate(loc, scope, &funcDecl.Body.List)
+			gen.Generate(loc, scope, "", &funcDecl.Body.List)
 			break
 		}
+	}
+
+	for i := 0; i < len(scope.Variables); i++ {
+		generateVariableFunc(loc, scope, &scope.Variables[i], decls)
 	}
 
 	*decls = append(*decls, funcDecl)
@@ -503,55 +513,8 @@ func generatePlural(loc *Localization, scope *MessageScope, plural *Plural, buil
 	*list = append(*list, switchStmt)
 }
 
-func generateSimplePlural(loc *Localization, scope *MessageScope, plural *Plural, list *[]ast.Stmt) {
-	generators := []struct {
-		Gen   Generator
-		Op    token.Token
-		Value string
-	}{
-		{plural.Zero, token.EQL, "0"},
-		{plural.One, token.EQL, "1"},
-		{plural.Many, token.GTR, "1"},
-		{plural.Other, token.ILLEGAL, ""},
-	}
-
-	switchStmt := &ast.SwitchStmt{
-		Body: &ast.BlockStmt{},
-	}
-
-	for _, gen := range generators {
-		if gen.Gen.IsZero() {
-			continue
-		}
-
-		caseClause := &ast.CaseClause{}
-
-		if gen.Op != token.ILLEGAL {
-			caseClause.List = []ast.Expr{
-				&ast.BinaryExpr{
-					X:  ast.NewIdent(plural.Arg),
-					Op: gen.Op,
-					Y: &ast.BasicLit{
-						Kind:  token.INT,
-						Value: gen.Value,
-					},
-				},
-			}
-		}
-
-		gen.Gen.SimpleGenerate(loc, scope, &caseClause.Body)
-		switchStmt.Body.List = append(switchStmt.Body.List, caseClause)
-	}
-
-	*list = append(*list, switchStmt)
-}
-
 func (p *Plural) Generate(loc *Localization, scope *MessageScope, builderName string, list *[]ast.Stmt) {
 	generatePlural(loc, scope, p, builderName, list)
-}
-
-func (p *Plural) SimpleGenerate(loc *Localization, scope *MessageScope, list *[]ast.Stmt) {
-	generateSimplePlural(loc, scope, p, list)
 }
 
 func generateFormatParts(
@@ -561,6 +524,11 @@ func generateFormatParts(
 	builderName string,
 	list *[]ast.Stmt,
 ) {
+	if builderName == "" {
+		generateSimpleFormatParts(loc, scope, parts, list)
+		return
+	}
+
 	for _, part := range parts {
 		switch part := part.(type) {
 		case string:
@@ -596,10 +564,6 @@ func generateSimpleFormatParts(_ *Localization, _ *MessageScope, parts FormatPar
 
 func (f FormatParts) Generate(loc *Localization, scope *MessageScope, builderName string, list *[]ast.Stmt) {
 	generateFormatParts(loc, scope, f, builderName, list)
-}
-
-func (f FormatParts) SimpleGenerate(loc *Localization, scope *MessageScope, list *[]ast.Stmt) {
-	generateSimpleFormatParts(loc, scope, f, list)
 }
 
 func generateString(_ *Localization, _ *MessageScope, str, builderName string, list *[]ast.Stmt) {
@@ -650,8 +614,21 @@ func generateArgument(
 		generateArgumentItoa(loc, arg, callExpr)
 	case "float64":
 		generateArgumentFormatFloat(loc, arg, callExpr)
+	case "Stringer":
+		generateArgumentStringer(loc, arg, callExpr)
 	default:
 		generateArgumentSprint(loc, arg, callExpr)
+	}
+}
+
+func generateArgumentStringer(_ *Localization, arg *Argument, callExpr *ast.CallExpr) {
+	callExpr.Args = []ast.Expr{
+		&ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X:   ast.NewIdent(arg.Name),
+				Sel: ast.NewIdent("String"),
+			},
+		},
 	}
 }
 

@@ -25,20 +25,11 @@ func DefaultSpecifiersToGoTypes() map[rune]GoType {
 		's': {Type: "string"},
 		'd': {Type: "int"},
 		'f': {Type: "float64"},
+		'v': {Type: "any"},
 		'S': {
 			Import:  "fmt",
 			Package: "fmt",
 			Type:    "Stringer",
-		},
-		'F': {
-			Import:  "fmt",
-			Package: "fmt",
-			Type:    "Format",
-		},
-		'M': {
-			Import:  "encoding",
-			Package: "encoding",
-			Type:    "TextMarshaler",
 		},
 	}
 }
@@ -179,8 +170,7 @@ type FmtInfo struct {
 }
 
 func (i *FmtInfo) IsZero() bool {
-	return i.Spec == 0 &&
-		!i.Width.Valid &&
+	return !i.Width.Valid &&
 		!i.Prec.Valid &&
 		!i.Mod.Valid &&
 		i.Flags == nil
