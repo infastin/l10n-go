@@ -181,15 +181,8 @@ func generateGeneralFuncs(_ []Localization, decls *[]ast.Decl) {
 
 func generateMessages(loc *Localization) (file *ast.File) {
 	importDecl := &ast.GenDecl{
-		Tok: token.IMPORT,
-		Specs: []ast.Spec{
-			&ast.ImportSpec{
-				Path: &ast.BasicLit{
-					Kind:  token.STRING,
-					Value: `"strings"`,
-				},
-			},
-		},
+		Tok:   token.IMPORT,
+		Specs: []ast.Spec{},
 	}
 
 	typeDecl := &ast.GenDecl{
@@ -238,6 +231,8 @@ func generateMessages(loc *Localization) (file *ast.File) {
 
 func generateMessage(loc *Localization, scope *MessageScope, decls *[]ast.Decl) {
 	const builderName = "builder"
+
+	loc.AddImport(GoImport{"strings", "strings"})
 
 	builderSpec := &ast.ValueSpec{
 		Names: []*ast.Ident{
