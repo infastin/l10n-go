@@ -64,6 +64,7 @@ func generateGeneral(locs []Localization) (file *ast.File) {
 	})
 
 	generateGeneralTable(locs, &file.Decls)
+	generateGeneralSupported(locs, &file.Decls)
 	generateGeneralFuncs(locs, &file.Decls)
 
 	return file
@@ -101,6 +102,33 @@ func generateGeneralInterface(msgs []MessageScope) (ifaceType *ast.InterfaceType
 	return ifaceType
 }
 
+func generateGeneralSupported(locs []Localization, decls *[]ast.Decl) {
+	sliceLit := &ast.CompositeLit{
+		Type: &ast.ArrayType{
+			Elt: ast.NewIdent("string"),
+		},
+	}
+
+	supportedSpec := &ast.ValueSpec{
+		Names:  []*ast.Ident{ast.NewIdent("Supported")},
+		Values: []ast.Expr{sliceLit},
+	}
+
+	varDecl := &ast.GenDecl{
+		Tok:   token.VAR,
+		Specs: []ast.Spec{supportedSpec},
+	}
+
+	for i := 0; i < len(locs); i++ {
+		sliceLit.Elts = append(sliceLit.Elts, &ast.BasicLit{
+			Kind:  token.STRING,
+			Value: strconv.Quote(locs[i].Lang.String()),
+		})
+	}
+
+	*decls = append(*decls, varDecl)
+}
+
 func generateGeneralTable(locs []Localization, decls *[]ast.Decl) {
 	mapLit := &ast.CompositeLit{
 		Type: &ast.MapType{
@@ -131,7 +159,11 @@ func generateGeneralTable(locs []Localization, decls *[]ast.Decl) {
 	*decls = append(*decls, varDecl)
 }
 
-func generateGeneralFuncs(_ []Localization, decls *[]ast.Decl) {
+func generateGeneralFuncs(locs []Localization, decls *[]ast.Decl) {
+	generateGeneralFuncNew(locs, decls)
+}
+
+func generateGeneralFuncNew(_ []Localization, decls *[]ast.Decl) {
 	*decls = append(*decls, &ast.FuncDecl{
 		Name: ast.NewIdent("New"),
 		Type: &ast.FuncType{

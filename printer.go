@@ -210,6 +210,8 @@ func (p *astPrinter) writeExpr(e ast.Expr) {
 		p.writeKeyValueExpr(e)
 	case *ast.MapType:
 		p.writeMapType(e)
+	case *ast.ArrayType:
+		p.writeArrayType(e)
 	}
 }
 
@@ -354,6 +356,17 @@ func (p *astPrinter) writeMapType(m *ast.MapType) {
 	p.writeExpr(m.Key)
 	p.b.WriteByte(']')
 	p.writeExpr(m.Value)
+}
+
+func (p *astPrinter) writeArrayType(a *ast.ArrayType) {
+	p.b.WriteByte('[')
+
+	if a.Len != nil {
+		p.writeExpr(a.Len)
+	}
+
+	p.b.WriteByte(']')
+	p.writeExpr(a.Elt)
 }
 
 func (p *astPrinter) writeStmt(s ast.Stmt) {
