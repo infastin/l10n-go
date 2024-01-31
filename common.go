@@ -75,6 +75,18 @@ func (p *Plural) GetArgumentNames() (args []string) {
 	return args
 }
 
+func (p *Plural) IsSimple() bool {
+	formatParts := []FormatParts{p.Zero, p.One, p.Many, p.Other}
+
+	for _, parts := range formatParts {
+		if !parts.IsSimple() {
+			return false
+		}
+	}
+
+	return true
+}
+
 type Variable struct {
 	Name   string
 	Plural Plural
@@ -107,7 +119,11 @@ type MessageScope struct {
 }
 
 func (s *MessageScope) IsSimple() bool {
-	return len(s.Arguments) == 0 && len(s.Variables) == 0
+	if !s.Plural.IsZero() {
+		return s.Plural.IsSimple()
+	}
+
+	return s.String.IsSimple()
 }
 
 type GoImport struct {
@@ -236,4 +252,14 @@ func (f FormatParts) GetArgumentNames() (args []string) {
 	}
 
 	return args
+}
+
+func (f FormatParts) IsSimple() bool {
+	for _, part := range f {
+		if _, ok := part.(string); !ok {
+			return false
+		}
+	}
+
+	return true
 }

@@ -14,10 +14,11 @@ import (
 )
 
 type LocalizationFile struct {
-	Path string
-	Name string
-	Lang language.Tag
-	Ext  string
+	Path     string
+	Filename string
+	Name     string
+	Lang     language.Tag
+	Ext      string
 }
 
 func GetLocalizationFiles() (files []LocalizationFile, err error) {
@@ -43,10 +44,11 @@ func GetLocalizationFiles() (files []LocalizationFile, err error) {
 		}
 
 		files = append(files, LocalizationFile{
-			Path: path.Join(config.Directory, name),
-			Name: matches[1],
-			Lang: lang,
-			Ext:  matches[3],
+			Path:     path.Join(config.Directory, name),
+			Filename: name,
+			Name:     matches[1],
+			Lang:     lang,
+			Ext:      matches[3],
 		})
 
 		return nil
@@ -63,7 +65,7 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err e
 	for _, file := range files {
 		data, err := os.ReadFile(file.Path)
 		if err != nil {
-			return nil, NewError(ErrCouldNotReadFile, ErrorValueStr(file.Path), ErrorWrapped(err))
+			return nil, NewError(ErrCouldNotReadFile, ErrorValueStr(file.Filename), ErrorWrapped(err))
 		}
 
 		var unmarshaler func([]byte, any) error
@@ -81,12 +83,12 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err e
 
 		msgs, err := unmarshalMessages(data, unmarshaler)
 		if err != nil {
-			return nil, NewError(ErrCouldNotUnmarshalFile, ErrorValueStr(file.Path), ErrorWrapped(err))
+			return nil, NewError(ErrCouldNotUnmarshalFile, ErrorValueStr(file.Filename), ErrorWrapped(err))
 		}
 
 		scopes, err := processMessages(msgs)
 		if err != nil {
-			return nil, NewError(ErrCouldNotParseFile, ErrorValueStr(file.Path), ErrorWrapped(err))
+			return nil, NewError(ErrCouldNotParseFile, ErrorValueStr(file.Filename), ErrorWrapped(err))
 		}
 
 		locIdx := localizationIndex(locs, file.Lang)
