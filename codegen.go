@@ -345,7 +345,7 @@ func generateMessagesTypeDecl(loc *Localization, decls *[]ast.Decl) {
 }
 
 func generateMessage(loc *Localization, scope *MessageScope, decls *[]ast.Decl) {
-	const builderName = "builder"
+	const builderName = "b0"
 
 	loc.AddImport(GoImport{"strings", "strings"})
 
