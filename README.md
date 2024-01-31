@@ -4,7 +4,7 @@ go-l10n is a command-line utiltity that generates Golang files
 from localization files defined in YAML, JSON or TOML format.
 
 It supports strings with arguments that come
-from Golang code and variables defined within message,
+from Golang code and variables defined within messages,
 and allows to create different messages depending on the value of the arguments.
 
 ## Installation
@@ -96,7 +96,9 @@ Variables are contained within `&{...}` blocks.
 Variables don't support formatting.
 Variable names can only contain Latin letters and underscores (a-zA-Z_).
 
-But you can use arguments inside of variable values:
+In order to escape `&` just write it twice.
+
+You can use arguments inside of variable values:
 ```yaml
 YouAreLate:
   variables:
@@ -182,8 +184,8 @@ func Language(loc Localizer) string {
 ```
 
 Slice `Supported` contains all supported languages.
-With function `New` you can get yourself a `Localizer` with the given language.
-And with function `Language` you can get the language from `Localizer`.
+With `New` function you can get yourself `Localizer` for a given language.
+And with `Language` function you can get the language from `Localizer`.
 
 Once you obtain `Localizer`, you can simply call its methods,
 which are named exactly like messages defined in your localization files,
