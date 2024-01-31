@@ -181,9 +181,9 @@ func Language(loc Localizer) string {
 }
 ```
 
-Slice `Supported` contains all supported langauges.
-With function `New` you can get yourself a `Localizer`.
-And with function `Language` you can get language from `Localizer`.
+Slice `Supported` contains all supported languages.
+With function `New` you can get yourself a `Localizer` with the given language.
+And with function `Language` you can get the language from `Localizer`.
 
 Once you obtain `Localizer`, you can simply call its methods,
 which are named exactly like messages defined in your localization files,
