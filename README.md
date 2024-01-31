@@ -181,7 +181,7 @@ func Language(loc Localizer) string {
 }
 ```
 
-Slices `Supported` contains all supported langauges.
+Slice `Supported` contains all supported langauges.
 With function `New` you can get yourself a `Localizer`.
 And with function `Language` you can get language from `Localizer`.
 
