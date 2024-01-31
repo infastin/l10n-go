@@ -51,7 +51,7 @@ Format consists of:
 1. Flags
 2. Width
 3. Precision
-4. Type specifier (`s`, `f`, `d`, `F`, `S`, `M`)
+4. Type specifier (ones specified above)
 5. Golang format specifier for the type (for example, it can be `x` for integers to output them in hex format)
 
 Flags, width, precision and format specifiers are all the same as in Golang's `fmt` package.
