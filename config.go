@@ -6,7 +6,7 @@ import (
 	"github.com/alecthomas/kong"
 )
 
-const cliVersion = "v1.0.1"
+const cliVersion = "v1.0.2"
 
 var config struct {
 	Directory         string
@@ -21,7 +21,7 @@ var config struct {
 var cli struct {
 	Dir     string           `required:"" short:"d" type:"existingdir" placeholder:"DIR" help:"Path to the directory with localization files."`
 	Pattern string           `optional:"" short:"p" default:"${pattern}" placeholder:"PATTERN" help:"Localization file regexp pattern."`
-	Package string           `optional:"" short:"P" default:"${package}" placeholder:"NAME" help:"Package name."`
+	Package string           `optional:"" short:"P" default:"${package}" help:"Package name."`
 	Output  string           `required:"" short:"o" placeholder:"DIR" help:"Path to output directory."`
 	Version kong.VersionFlag `optional:"" short:"v" help:"Print version number."`
 }
