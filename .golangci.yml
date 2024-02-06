@@ -16,6 +16,14 @@ linters-settings:
       - dupImport
       - unnecessaryBlock
       - octalLiteral
+    settings:
+      rangeValCopy:
+        sizeThreshold: 64
+      rangeExprCopy:
+        sizeThreshold: 256
+  revive:
+    rules:
+      - name: unused-receiver
   gofumpt:
     extra-rules: false
   misspell:

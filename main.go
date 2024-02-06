@@ -62,7 +62,9 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err e
 	// Each set corresponds to the localization at the same index
 	var locsScopeNames []map[string]struct{}
 
-	for _, file := range files {
+	for i := 0; i < len(files); i++ {
+		file := &files[i]
+
 		data, err := os.ReadFile(file.Path)
 		if err != nil {
 			return nil, NewError(ErrCouldNotReadFile, ErrorValueStr(file.Filename), ErrorWrapped(err))
