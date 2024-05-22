@@ -70,7 +70,7 @@ func GetLocalizationFiles() (files []LocalizationFile, err error) {
 		})
 	}
 
-	return files, err
+	return files, nil
 }
 
 func ReadLocalizationFiles(files []LocalizationFile) (locs []scope.Localization, err error) {
