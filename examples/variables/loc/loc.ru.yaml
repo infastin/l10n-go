@@ -1,0 +1,8 @@
+YouAreLate:
+  variables:
+    minutes:
+      plural:
+        arg: "count"
+        one: "1 минуту"
+        other: "${count} минут"
+  string: "Вы опоздали на &{minutes}."
