@@ -1,4 +1,4 @@
-package main
+package printer
 
 import (
 	"bytes"
@@ -548,7 +548,7 @@ func (p *astPrinter) writeBlockStmt(b *ast.BlockStmt) {
 	p.b.WriteByte('}')
 }
 
-func fprintAstFile(w io.Writer, f *ast.File) (err error) {
+func FprintAstFile(w io.Writer, f *ast.File) (err error) {
 	p := &astPrinter{
 		b:     bytes.NewBuffer(nil),
 		level: 0,

@@ -1,13 +1,16 @@
-package main
+package parse
 
 import (
 	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/infastin/go-l10n/ast"
+	"github.com/infastin/go-l10n/common"
 )
 
-func parseFormat(fmt string) (parts FormatParts, err error) {
+func parseFormat(fmt string) (parts ast.FormatParts, err error) {
 	pos := 0
 
 	for fmt != "" {
@@ -17,7 +20,7 @@ func parseFormat(fmt string) (parts FormatParts, err error) {
 		}
 
 		if idx == -1 {
-			parts = append(parts, fmt)
+			parts = append(parts, ast.Text(fmt))
 			break
 		}
 
@@ -27,9 +30,9 @@ func parseFormat(fmt string) (parts FormatParts, err error) {
 		cur := rune(fmt[0])
 
 		if len(fmt) == 1 {
-			return nil, NewError(ErrUnexpectedEndOfFormat,
-				ErrorPosition(pos),
-				ErrorExpectedAnyChar(cur, '{'),
+			return nil, common.NewError(common.ErrUnexpectedEndOfFormat,
+				common.ErrorPosition(pos),
+				common.ErrorExpectedAnyChar(cur, '{'),
 			)
 		}
 
@@ -37,10 +40,10 @@ func parseFormat(fmt string) (parts FormatParts, err error) {
 		pos++
 
 		if cur != next && next != '{' {
-			return nil, NewError(ErrUnexpectedChar,
-				ErrorValueChar(next),
-				ErrorPosition(pos),
-				ErrorExpectedAnyChar(cur, '{'),
+			return nil, common.NewError(common.ErrUnexpectedChar,
+				common.ErrorValueChar(next),
+				common.ErrorPosition(pos),
+				common.ErrorExpectedAnyChar(cur, '{'),
 			)
 		}
 
@@ -50,14 +53,14 @@ func parseFormat(fmt string) (parts FormatParts, err error) {
 		// If encountered '$$' or '&&' write text with '$' or '&'
 		if cur == next {
 			if text != "" {
-				parts = append(parts, text)
+				parts = append(parts, ast.Text(text))
 			}
 			continue
 		}
 
 		// If encountered '${' or '&{' write text without '$' and '&'
 		if text := text[:idx]; text != "" {
-			parts = append(parts, text)
+			parts = append(parts, ast.Text(text))
 		}
 
 		idx, err = findClosingBracket(fmt, &pos)
@@ -67,24 +70,24 @@ func parseFormat(fmt string) (parts FormatParts, err error) {
 
 		switch cur {
 		case '$':
-			arg, err := parseArgument(fmt[:idx])
+			arg, addPos, err := parseArgument(fmt[:idx])
 			if err != nil {
-				err.(*Error).Pos += ErrorPosition(pos)
+				err.(*common.Error).Pos += common.ErrorPosition(pos)
 				return nil, err
 			}
 
 			parts = append(parts, arg)
-			pos += arg.length
+			pos += addPos
 			fmt = fmt[idx+1:]
 		case '&':
-			variable, err := parseVariable(fmt[:idx])
+			variable, addPos, err := parseVariable(fmt[:idx])
 			if err != nil {
-				err.(*Error).Pos += ErrorPosition(pos)
+				err.(*common.Error).Pos += common.ErrorPosition(pos)
 				return nil, err
 			}
 
 			parts = append(parts, variable)
-			pos += variable.length
+			pos += addPos
 			fmt = fmt[idx+1:]
 		}
 	}
@@ -98,7 +101,10 @@ func findBlockStart(fmt string, pos *int) (idx int, err error) {
 	for i := 0; i < len(fmt); {
 		r, n := utf8.DecodeRuneInString(fmt[i:])
 		if r == utf8.RuneError {
-			return 0, NewError(ErrInvalidChar, ErrorValueChar(r), ErrorPosition(*pos))
+			return 0, common.NewError(common.ErrInvalidChar,
+				common.ErrorValueChar(r),
+				common.ErrorPosition(*pos),
+			)
 		}
 
 		if r == '$' || r == '&' {
@@ -119,7 +125,10 @@ func findClosingBracket(fmt string, pos *int) (idx int, err error) {
 	for i := 0; i < len(fmt); {
 		r, n := utf8.DecodeRuneInString(fmt[i:])
 		if r == utf8.RuneError {
-			return 0, NewError(ErrInvalidChar, ErrorValueChar(r), ErrorPosition(*pos))
+			return 0, common.NewError(common.ErrInvalidChar,
+				common.ErrorValueChar(r),
+				common.ErrorPosition(*pos),
+			)
 		}
 
 		if r == '}' {
@@ -132,98 +141,96 @@ func findClosingBracket(fmt string, pos *int) (idx int, err error) {
 	}
 
 	if idx == -1 {
-		return 0, NewError(ErrNoClosingBracket, ErrorPosition(*pos))
+		return 0, common.NewError(common.ErrNoClosingBracket, common.ErrorPosition(*pos))
 	}
 
 	return idx, nil
 }
 
-func parseVariable(variable string) (info VarInfo, err error) {
+func parseVariable(variable string) (info ast.VarInfo, pos int, err error) {
 	switch err = checkVariableName(variable); err {
-	case ErrInvalidVariableName:
-		return VarInfo{}, NewError(err, ErrorValueStr(variable), ErrorPosition(0))
-	case ErrNoVariableName:
-		return VarInfo{}, NewError(err, ErrorPosition(0))
+	case common.ErrInvalidVariableName:
+		return ast.VarInfo{}, 0, common.NewError(err,
+			common.ErrorValueStr(variable),
+			common.ErrorPosition(0),
+		)
+	case common.ErrNoVariableName:
+		return ast.VarInfo{}, 0, common.NewError(err, common.ErrorPosition(0))
 	}
 
 	info.Name = variable
-	info.length = len(variable)
 
-	return info, nil
+	return info, len(variable), nil
 }
 
 func checkVariableName(variable string) (err error) {
 	if variable == "" {
-		return ErrNoVariableName
+		return common.ErrNoVariableName
 	}
 
 	for i := 0; i < len(variable); i++ {
 		if c := variable[i]; (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && c != '_' {
-			return ErrInvalidVariableName
+			return common.ErrInvalidVariableName
 		}
 	}
 
 	return nil
 }
 
-func parseArgument(arg string) (info ArgInfo, err error) {
+func parseArgument(arg string) (info ast.ArgInfo, pos int, err error) {
 	colonIdx := strings.IndexByte(arg, ':')
 	if colonIdx != -1 {
-		formatInfo, err := parseArgumentFormat(arg[:colonIdx])
+		formatInfo, addPos, err := parseArgumentFormat(arg[:colonIdx])
 		if err != nil {
-			return ArgInfo{}, err
+			return ast.ArgInfo{}, 0, err
 		}
 
 		info.FmtInfo = formatInfo
+		pos = addPos
 		arg = arg[colonIdx+1:]
 	}
 
-	pos := 0
-	if info.FmtInfo.length != 0 {
-		pos = info.FmtInfo.length + 1
-	}
-
 	switch err = checkArgumentName(arg); err {
-	case ErrInvalidArgumentName:
-		return ArgInfo{}, NewError(err, ErrorValueStr(arg), ErrorPosition(pos))
-	case ErrNoArgumentName:
-		return ArgInfo{}, NewError(err, ErrorPosition(pos))
+	case common.ErrInvalidArgumentName:
+		return ast.ArgInfo{}, 0, common.NewError(err,
+			common.ErrorValueStr(arg),
+			common.ErrorPosition(pos),
+		)
+	case common.ErrNoArgumentName:
+		return ast.ArgInfo{}, 0, common.NewError(err, common.ErrorPosition(pos))
 	}
 
 	info.Name = arg
-	info.length = pos
 
-	return info, nil
+	return info, pos, nil
 }
 
 func checkArgumentName(arg string) (err error) {
 	if arg == "" {
-		return ErrNoArgumentName
+		return common.ErrNoArgumentName
 	}
 
 	for i := 0; i < len(arg); i++ {
 		if c := arg[i]; (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') {
-			return ErrInvalidArgumentName
+			return common.ErrInvalidArgumentName
 		}
 	}
 
 	return nil
 }
 
-func parseArgumentFormat(fmt string) (info FmtInfo, err error) {
-	pos := 0
-
+func parseArgumentFormat(fmt string) (info ast.FmtInfo, pos int, err error) {
 	// Parse flags
 	fmt, pos, err = parseArgumentFormatFlags(fmt, pos, &info)
 	if err != nil {
-		return FmtInfo{}, err
+		return ast.FmtInfo{}, 0, err
 	}
 
 	// Parse width
 	if fmt != "" && fmt[0] >= '0' && fmt[0] <= '9' {
 		fmt, pos, err = parseArgumentFormatWidth(fmt, pos, &info)
 		if err != nil {
-			return FmtInfo{}, err
+			return ast.FmtInfo{}, 0, err
 		}
 	}
 
@@ -231,7 +238,7 @@ func parseArgumentFormat(fmt string) (info FmtInfo, err error) {
 	if fmt != "" && fmt[0] == '.' {
 		fmt, pos, err = parseArgumentFormatPrecision(fmt, pos, &info)
 		if err != nil {
-			return FmtInfo{}, err
+			return ast.FmtInfo{}, 0, err
 		}
 	}
 
@@ -239,7 +246,7 @@ func parseArgumentFormat(fmt string) (info FmtInfo, err error) {
 	if fmt != "" {
 		fmt, pos, err = parseArgumentFormatSpecifier(fmt, pos, &info)
 		if err != nil {
-			return FmtInfo{}, err
+			return ast.FmtInfo{}, 0, err
 		}
 	}
 
@@ -247,24 +254,25 @@ func parseArgumentFormat(fmt string) (info FmtInfo, err error) {
 	if fmt != "" {
 		fmt, pos, err = parseArgumentFormatModifier(fmt, pos, &info)
 		if err != nil {
-			return FmtInfo{}, err
+			return ast.FmtInfo{}, 0, err
 		}
 	}
 
 	if fmt != "" {
-		return FmtInfo{}, NewError(ErrUnexpectedText, ErrorPosition(pos))
+		return ast.FmtInfo{}, 0, common.NewError(common.ErrUnexpectedText, common.ErrorPosition(pos))
 	}
 
-	info.length = pos
-
-	return info, nil
+	return info, pos, nil
 }
 
-func parseArgumentFormatFlags(fmt string, pos int, info *FmtInfo) (newFmt string, newPos int, err error) {
+func parseArgumentFormatFlags(fmt string, pos int, info *ast.FmtInfo) (newFmt string, newPos int, err error) {
 	for fmt != "" {
 		r, n := utf8.DecodeRuneInString(fmt)
 		if r == utf8.RuneError {
-			return "", 0, NewError(ErrInvalidChar, ErrorValueChar(r), ErrorPosition(pos))
+			return "", 0, common.NewError(common.ErrInvalidChar,
+				common.ErrorValueChar(r),
+				common.ErrorPosition(pos),
+			)
 		}
 
 		switch r {
@@ -283,7 +291,7 @@ func parseArgumentFormatFlags(fmt string, pos int, info *FmtInfo) (newFmt string
 	return fmt, pos, nil
 }
 
-func parseArgumentFormatWidth(fmt string, pos int, info *FmtInfo) (newFmt string, newPos int, err error) {
+func parseArgumentFormatWidth(fmt string, pos int, info *ast.FmtInfo) (newFmt string, newPos int, err error) {
 	lastNumber := 1
 	for i := 1; ; i++ {
 		if i == len(fmt) || fmt[i] < '0' || fmt[i] > '9' {
@@ -294,21 +302,21 @@ func parseArgumentFormatWidth(fmt string, pos int, info *FmtInfo) (newFmt string
 
 	width, err := strconv.ParseInt(fmt[:lastNumber], 10, 64)
 	if err != nil {
-		return "", 0, NewError(ErrInvalidWidth,
-			ErrorValueStr(fmt[:lastNumber]),
-			ErrorPosition(pos),
-			ErrorWrapped(err),
+		return "", 0, common.NewError(common.ErrInvalidWidth,
+			common.ErrorValueStr(fmt[:lastNumber]),
+			common.ErrorPosition(pos),
+			common.ErrorWrapped(err),
 		)
 	}
 
-	info.Width = WidthOpt{int(width), true}
+	info.Width = ast.WidthOpt{Value: int(width), Valid: true}
 	fmt = fmt[lastNumber:]
 	pos += lastNumber
 
 	return fmt, pos, nil
 }
 
-func parseArgumentFormatPrecision(fmt string, pos int, info *FmtInfo) (newFmt string, newPos int, err error) {
+func parseArgumentFormatPrecision(fmt string, pos int, info *ast.FmtInfo) (newFmt string, newPos int, err error) {
 	lastNumber := 1
 	for i := 1; ; i++ {
 		if i == len(fmt) || fmt[i] < '0' || fmt[i] > '9' {
@@ -321,31 +329,37 @@ func parseArgumentFormatPrecision(fmt string, pos int, info *FmtInfo) (newFmt st
 	if lastNumber != 1 {
 		prec64, err := strconv.ParseInt(fmt[1:lastNumber], 10, 64)
 		if err != nil {
-			return "", 0, NewError(ErrInvalidPrecision,
-				ErrorValueStr(fmt[:lastNumber]),
-				ErrorPosition(pos),
-				ErrorWrapped(err),
+			return "", 0, common.NewError(common.ErrInvalidPrecision,
+				common.ErrorValueStr(fmt[:lastNumber]),
+				common.ErrorPosition(pos),
+				common.ErrorWrapped(err),
 			)
 		}
 
 		prec = int(prec64)
 	}
 
-	info.Prec = PrecOpt{prec, true}
+	info.Prec = ast.PrecOpt{Value: prec, Valid: true}
 	fmt = fmt[lastNumber:]
 	pos += lastNumber
 
 	return fmt, pos, nil
 }
 
-func parseArgumentFormatSpecifier(fmt string, pos int, info *FmtInfo) (newFmt string, newPos int, err error) {
+func parseArgumentFormatSpecifier(fmt string, pos int, info *ast.FmtInfo) (newFmt string, newPos int, err error) {
 	r, n := utf8.DecodeRuneInString(fmt)
 	if r == utf8.RuneError {
-		return "", 0, NewError(ErrInvalidChar, ErrorValueChar(r), ErrorPosition(pos))
+		return "", 0, common.NewError(common.ErrInvalidChar,
+			common.ErrorValueChar(r),
+			common.ErrorPosition(pos),
+		)
 	}
 
-	if !slices.Contains(config.FormatSpecifiers, r) {
-		return "", 0, NewError(ErrInvalidSpecifier, ErrorValueChar(r), ErrorPosition(pos))
+	if !slices.Contains(common.Config.FormatSpecifiers, r) {
+		return "", 0, common.NewError(common.ErrInvalidSpecifier,
+			common.ErrorValueChar(r),
+			common.ErrorPosition(pos),
+		)
 	}
 
 	info.Spec = r
@@ -355,13 +369,16 @@ func parseArgumentFormatSpecifier(fmt string, pos int, info *FmtInfo) (newFmt st
 	return fmt, pos, nil
 }
 
-func parseArgumentFormatModifier(fmt string, pos int, info *FmtInfo) (newFmt string, newPos int, err error) {
+func parseArgumentFormatModifier(fmt string, pos int, info *ast.FmtInfo) (newFmt string, newPos int, err error) {
 	r, n := utf8.DecodeRuneInString(fmt)
 	if r == utf8.RuneError {
-		return "", 0, NewError(ErrInvalidChar, ErrorValueChar(r), ErrorPosition(pos))
+		return "", 0, common.NewError(common.ErrInvalidChar,
+			common.ErrorValueChar(r),
+			common.ErrorPosition(pos),
+		)
 	}
 
-	info.Mod = ModOpt{r, true}
+	info.Mod = ast.ModOpt{Value: r, Valid: true}
 	fmt = fmt[n:]
 	pos++
 

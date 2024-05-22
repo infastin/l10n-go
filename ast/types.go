@@ -1,11 +1,9 @@
-package main
+package ast
 
 import (
 	"slices"
 	"strconv"
 	"strings"
-
-	"golang.org/x/text/language"
 )
 
 type GoType struct {
@@ -20,18 +18,10 @@ func (t *GoType) IsZero() bool {
 		t.Type == ""
 }
 
-func DefaultSpecifiersToGoTypes() map[rune]GoType {
-	return map[rune]GoType{
-		's': {Type: "string"},
-		'd': {Type: "int"},
-		'f': {Type: "float64"},
-		'v': {Type: "any"},
-		'S': {
-			Import:  "fmt",
-			Package: "fmt",
-			Type:    "Stringer",
-		},
-	}
+type Value interface {
+	value()
+	IsZero() bool
+	GetArgumentNames() (names []string)
 }
 
 type Plural struct {
@@ -41,6 +31,8 @@ type Plural struct {
 	Many  FormatParts
 	Other FormatParts
 }
+
+func (Plural) value() {}
 
 func (p *Plural) IsZero() bool {
 	return p.Arg == "" &&
@@ -91,58 +83,9 @@ type Message struct {
 	String    FormatParts
 }
 
-type Argument struct {
-	Name   string
-	GoType GoType
-}
-
-type VariableScope struct {
-	Variable
-	ArgumentNames []string
-}
-
-type MessageScope struct {
-	Name      string
-	Variables []VariableScope
-	Plural    Plural
-	String    FormatParts
-	Arguments []Argument
-}
-
-func (s *MessageScope) IsSimple() bool {
-	if !s.Plural.IsZero() {
-		return s.Plural.IsSimple()
-	}
-
-	return s.String.IsSimple()
-}
-
 type GoImport struct {
 	Import  string
 	Package string
-}
-
-type Localization struct {
-	Name    string
-	Lang    language.Tag
-	Scopes  []MessageScope
-	Imports []GoImport
-}
-
-func (loc *Localization) AddImport(imp GoImport) {
-	if !slices.Contains(loc.Imports, imp) {
-		loc.Imports = append(loc.Imports, imp)
-	}
-}
-
-func localizationIndex(locs []Localization, lang language.Tag) (idx int) {
-	for i := 0; i < len(locs); i++ {
-		if locs[i].Lang.String() == lang.String() {
-			return i
-		}
-	}
-
-	return -1
 }
 
 type WidthOpt struct {
@@ -161,19 +104,18 @@ type ModOpt struct {
 }
 
 type FmtInfo struct {
-	Spec   rune
-	Width  WidthOpt
-	Prec   PrecOpt
-	Mod    ModOpt
-	Flags  []rune
-	length int
+	Spec  rune
+	Width WidthOpt
+	Prec  PrecOpt
+	Mod   ModOpt
+	Flags []rune
 }
 
-func (i *FmtInfo) IsZero() bool {
-	return !i.Width.Valid &&
-		!i.Prec.Valid &&
-		!i.Mod.Valid &&
-		i.Flags == nil
+func (i *FmtInfo) HasOptions() bool {
+	return i.Width.Valid ||
+		i.Prec.Valid ||
+		i.Mod.Valid ||
+		i.Flags != nil
 }
 
 func (i *FmtInfo) GoFormat(goType GoType) string {
@@ -216,18 +158,28 @@ func (i *FmtInfo) GoFormat(goType GoType) string {
 	return b.String()
 }
 
+type FormatPart interface {
+	formatPart()
+}
+
 type ArgInfo struct {
 	Name    string
 	FmtInfo FmtInfo
-	length  int
 }
 
 type VarInfo struct {
-	Name   string
-	length int
+	Name string
 }
 
-type FormatParts []any
+type Text string
+
+func (ArgInfo) formatPart() {}
+func (VarInfo) formatPart() {}
+func (Text) formatPart()    {}
+
+type FormatParts []FormatPart
+
+func (FormatParts) value() {}
 
 func (f FormatParts) IsZero() bool {
 	return len(f) == 0
@@ -235,18 +187,17 @@ func (f FormatParts) IsZero() bool {
 
 func (f FormatParts) GetArgumentNames() (args []string) {
 	for _, part := range f {
-		arg, ok := part.(*ArgInfo)
+		arg, ok := part.(ArgInfo)
 		if ok && !slices.Contains(args, arg.Name) {
 			args = append(args, arg.Name)
 		}
 	}
-
 	return args
 }
 
 func (f FormatParts) IsSimple() bool {
 	for _, part := range f {
-		if _, ok := part.(string); !ok {
+		if _, ok := part.(Text); !ok {
 			return false
 		}
 	}

@@ -1,7 +1,7 @@
 linters-settings:
   errcheck:
     check-type-assertions: true
-    check-blank: true
+    check-blank: false
   exhaustive:
     check-generated: false
     default-signifies-exhaustive: true
@@ -36,7 +36,6 @@ linters:
   enable:
     - asciicheck
     - bodyclose
-    - dogsled
     - durationcheck
     - errcheck
     - exhaustive
@@ -45,7 +44,6 @@ linters:
     - gocritic
     - godot
     - godox
-    - goerr113
     - gomodguard
     - goprintffuncname
     - gosec

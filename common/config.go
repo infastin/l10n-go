@@ -1,21 +1,22 @@
-package main
+package common
 
 import (
 	"regexp"
 
 	"github.com/alecthomas/kong"
+	"github.com/infastin/go-l10n/ast"
 )
 
 const cliVersion = "v1.0.2"
 
-var config struct {
+var Config struct {
 	Directory         string
 	PackageName       string
 	Output            string
 	Pattern           regexp.Regexp
 	FormatSpecifiers  []rune
-	SpecifierToGoType map[rune]GoType
-	Imports           []GoImport
+	SpecifierToGoType map[rune]ast.GoType
+	Imports           []ast.GoImport
 }
 
 var cli struct {
@@ -36,11 +37,21 @@ func InitConfig() {
 		},
 	)
 
-	config.Directory = cli.Dir
-	config.Pattern = *regexp.MustCompile(cli.Pattern)
-	config.PackageName = cli.Package
-	config.Output = cli.Output
+	Config.Directory = cli.Dir
+	Config.Pattern = *regexp.MustCompile(cli.Pattern)
+	Config.PackageName = cli.Package
+	Config.Output = cli.Output
 
-	config.FormatSpecifiers = []rune{'s', 'd', 'f', 'S', 'F', 'M'}
-	config.SpecifierToGoType = DefaultSpecifiersToGoTypes()
+	Config.FormatSpecifiers = []rune{'s', 'd', 'f', 'S', 'F', 'M'}
+	Config.SpecifierToGoType = map[rune]ast.GoType{
+		's': {Type: "string"},
+		'd': {Type: "int"},
+		'f': {Type: "float64"},
+		'v': {Type: "any"},
+		'S': {
+			Import:  "fmt",
+			Package: "fmt",
+			Type:    "Stringer",
+		},
+	}
 }

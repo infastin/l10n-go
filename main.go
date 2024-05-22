@@ -9,6 +9,12 @@ import (
 	"path"
 
 	"github.com/BurntSushi/toml"
+	"github.com/infastin/go-l10n/codegen"
+	"github.com/infastin/go-l10n/common"
+	"github.com/infastin/go-l10n/parse"
+	"github.com/infastin/go-l10n/printer"
+	"github.com/infastin/go-l10n/process"
+	"github.com/infastin/go-l10n/scope"
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 )
@@ -22,29 +28,29 @@ type LocalizationFile struct {
 }
 
 func GetLocalizationFiles() (files []LocalizationFile, err error) {
-	dfs := os.DirFS(config.Directory)
+	dfs := os.DirFS(common.Config.Directory)
 
 	err = fs.WalkDir(dfs, ".", func(name string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
 
-		matches := config.Pattern.FindStringSubmatch(name)
+		matches := common.Config.Pattern.FindStringSubmatch(name)
 		if len(matches) == 0 {
-			return NewError(ErrInvalidFilename, ErrorValueStr(name), ErrorWrapped(ErrFilenameDoesNotMatch))
+			return common.NewError(common.ErrInvalidFilename, common.ErrorValueStr(name), common.ErrorWrapped(common.ErrFilenameDoesNotMatch))
 		}
 
 		if len(matches) != 4 {
-			return NewError(ErrInvalidPattern, ErrorValueStr(config.Pattern.String()))
+			return common.NewError(common.ErrInvalidPattern, common.ErrorValueStr(common.Config.Pattern.String()))
 		}
 
 		lang, err := language.Parse(matches[2])
 		if err != nil {
-			return NewError(ErrInvalidLanguage, ErrorValueStr(matches[1]), ErrorWrapped(err))
+			return common.NewError(common.ErrInvalidLanguage, common.ErrorValueStr(matches[1]), common.ErrorWrapped(err))
 		}
 
 		files = append(files, LocalizationFile{
-			Path:     path.Join(config.Directory, name),
+			Path:     path.Join(common.Config.Directory, name),
 			Filename: name,
 			Name:     matches[1],
 			Lang:     lang,
@@ -57,7 +63,7 @@ func GetLocalizationFiles() (files []LocalizationFile, err error) {
 	return files, err
 }
 
-func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err error) {
+func ReadLocalizationFiles(files []LocalizationFile) (locs []scope.Localization, err error) {
 	// Slice of sets of scope names
 	// Each set corresponds to the localization at the same index
 	var locsScopeNames []map[string]struct{}
@@ -67,7 +73,7 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err e
 
 		data, err := os.ReadFile(file.Path)
 		if err != nil {
-			return nil, NewError(ErrCouldNotReadFile, ErrorValueStr(file.Filename), ErrorWrapped(err))
+			return nil, common.NewError(common.ErrCouldNotReadFile, common.ErrorValueStr(file.Filename), common.ErrorWrapped(err))
 		}
 
 		var unmarshaler func([]byte, any) error
@@ -80,27 +86,27 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err e
 		case "toml":
 			unmarshaler = toml.Unmarshal
 		default:
-			return nil, NewError(ErrUnsupportedFileExtension, ErrorValueStr(file.Ext))
+			return nil, common.NewError(common.ErrUnsupportedFileExtension, common.ErrorValueStr(file.Ext))
 		}
 
-		msgs, err := unmarshalMessages(data, unmarshaler)
+		msgs, err := parse.UnmarshalMessages(data, unmarshaler)
 		if err != nil {
-			return nil, NewError(ErrCouldNotUnmarshalFile, ErrorValueStr(file.Filename), ErrorWrapped(err))
+			return nil, common.NewError(common.ErrCouldNotUnmarshalFile, common.ErrorValueStr(file.Filename), common.ErrorWrapped(err))
 		}
 
-		scopes, err := processMessages(msgs)
+		mss, err := process.ProcessMessages(msgs)
 		if err != nil {
-			return nil, NewError(ErrCouldNotParseFile, ErrorValueStr(file.Filename), ErrorWrapped(err))
+			return nil, common.NewError(common.ErrCouldNotParseFile, common.ErrorValueStr(file.Filename), common.ErrorWrapped(err))
 		}
 
-		locIdx := localizationIndex(locs, file.Lang)
+		locIdx := scope.LocalizationIndex(locs, file.Lang)
 
 		// If localization is not found, create it and add scopes to it
 		if locIdx == -1 {
-			locs = append(locs, Localization{
+			locs = append(locs, scope.Localization{
 				Name:   file.Name,
 				Lang:   file.Lang,
-				Scopes: scopes,
+				Scopes: mss,
 			})
 
 			locsScopeNames = append(locsScopeNames, make(map[string]struct{}))
@@ -108,8 +114,8 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err e
 
 			// Add scope names to the corresponding set so it is possible
 			// to quickly check for duplicate messages
-			for i := 0; i < len(scopes); i++ {
-				locScopeNames[scopes[i].Name] = struct{}{}
+			for i := 0; i < len(mss); i++ {
+				locScopeNames[mss[i].Name] = struct{}{}
 			}
 
 			continue
@@ -119,22 +125,22 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err e
 		// and add new messages
 
 		loc := &locs[locIdx]
-		locScopeName := &locsScopeNames[locIdx]
+		locScopeName := locsScopeNames[locIdx]
 
-		for i := 0; i < len(scopes); i++ {
-			scope := &scopes[i]
+		for i := 0; i < len(mss); i++ {
+			ms := &mss[i]
 
-			if _, ok := (*locScopeName)[scope.Name]; ok {
-				return nil, NewError(ErrInvalidLocalization,
-					ErrorValueStr(loc.Lang.String()),
-					NewDuplicateMessageError(scope.Name),
+			if _, ok := locScopeName[ms.Name]; ok {
+				return nil, common.NewError(common.ErrInvalidLocalization,
+					common.ErrorValueStr(loc.Lang.String()),
+					common.NewDuplicateMessageError(ms.Name),
 				)
 			}
 
-			(*locScopeName)[scope.Name] = struct{}{}
+			locScopeName[ms.Name] = struct{}{}
 		}
 
-		loc.Scopes = append(loc.Scopes, scopes...)
+		loc.Scopes = append(loc.Scopes, mss...)
 	}
 
 	return locs, nil
@@ -142,9 +148,9 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []Localization, err e
 
 // Checks whether different localizations contain all the same messages.
 // Also checks if there are any localizations at all.
-func CheckLocalizations(locs []Localization) (err error) {
+func CheckLocalizations(locs []scope.Localization) (err error) {
 	if len(locs) == 0 {
-		return NewError(ErrNoLocalizationsFound)
+		return common.NewError(common.ErrNoLocalizationsFound)
 	}
 
 	// We consider the first localization as the "base" one
@@ -153,8 +159,8 @@ func CheckLocalizations(locs []Localization) (err error) {
 	baseMsgs := make(map[string]struct{})
 
 	for i := 0; i < len(baseLoc.Scopes); i++ {
-		scope := &locs[0].Scopes[i]
-		baseMsgs[scope.Name] = struct{}{}
+		ms := &locs[0].Scopes[i]
+		baseMsgs[ms.Name] = struct{}{}
 	}
 
 	for i := 1; i < len(locs); i++ {
@@ -165,24 +171,24 @@ func CheckLocalizations(locs []Localization) (err error) {
 		// Add messages to the set and
 		// check for unspecified messages in base localization
 		for j := 0; j < len(loc.Scopes); j++ {
-			scope := &loc.Scopes[j]
+			ms := &loc.Scopes[j]
 
-			if _, ok := baseMsgs[scope.Name]; !ok {
-				return NewError(ErrInvalidLocalization,
-					ErrorValueStr(baseLoc.Lang.String()),
-					NewMessageNotSpecifiedError(scope.Name),
+			if _, ok := baseMsgs[ms.Name]; !ok {
+				return common.NewError(common.ErrInvalidLocalization,
+					common.ErrorValueStr(baseLoc.Lang.String()),
+					common.NewMessageNotSpecifiedError(ms.Name),
 				)
 			}
 
-			msgs[scope.Name] = struct{}{}
+			msgs[ms.Name] = struct{}{}
 		}
 
 		// Check for unspecified messages in localization
 		for msg := range baseMsgs {
 			if _, ok := msgs[msg]; !ok {
-				return NewError(ErrInvalidLocalization,
-					ErrorValueStr(loc.Lang.String()),
-					NewMessageNotSpecifiedError(msg),
+				return common.NewError(common.ErrInvalidLocalization,
+					common.ErrorValueStr(loc.Lang.String()),
+					common.NewMessageNotSpecifiedError(msg),
 				)
 			}
 		}
@@ -194,31 +200,31 @@ func CheckLocalizations(locs []Localization) (err error) {
 func generateFile(locFile *ast.File, filename string) (err error) {
 	file, err := os.Create(filename)
 	if err != nil {
-		return NewError(ErrCouldNotCreateFile, ErrorValueStr(filename), ErrorWrapped(err))
+		return common.NewError(common.ErrCouldNotCreateFile, common.ErrorValueStr(filename), common.ErrorWrapped(err))
 	}
 	defer file.Close()
 
-	err = fprintAstFile(file, locFile)
+	err = printer.FprintAstFile(file, locFile)
 	if err != nil {
-		return NewError(ErrCouldNotWriteToFile, ErrorValueStr(filename), ErrorWrapped(err))
+		return common.NewError(common.ErrCouldNotWriteToFile, common.ErrorValueStr(filename), common.ErrorWrapped(err))
 	}
 
 	return nil
 }
 
-func GenerateLocalizations(locs []Localization) (err error) {
-	locFiles := generateLocalizations(locs)
+func GenerateLocalizations(locs []scope.Localization) (err error) {
+	locFiles := codegen.GenerateLocalizations(locs)
 
-	err = os.MkdirAll(config.Output, 0755)
+	err = os.MkdirAll(common.Config.Output, 0755)
 	if err != nil {
-		return NewError(ErrCouldNotCreateDirectory, ErrorValueStr(config.Output), ErrorWrapped(err))
+		return common.NewError(common.ErrCouldNotCreateDirectory, common.ErrorValueStr(common.Config.Output), common.ErrorWrapped(err))
 	}
 
-	filenames := []string{path.Join(config.Output, "l10n.go")}
+	filenames := []string{path.Join(common.Config.Output, "l10n.go")}
 
 	for i := 1; i < len(locFiles); i++ {
 		filename := locs[i-1].Name + "_" + locs[i-1].Lang.String() + ".go"
-		filenames = append(filenames, path.Join(config.Output, filename))
+		filenames = append(filenames, path.Join(common.Config.Output, filename))
 	}
 
 	for i, locFile := range locFiles {
@@ -232,7 +238,7 @@ func GenerateLocalizations(locs []Localization) (err error) {
 }
 
 func main() {
-	InitConfig()
+	common.InitConfig()
 
 	locFiles, err := GetLocalizationFiles()
 	if err != nil {
