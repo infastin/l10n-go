@@ -10,7 +10,6 @@ import (
 type Generator interface {
 	IsZero() bool
 	Generate(loc *Localization, scope *MessageScope, builderName string, list *[]ast.Stmt)
-	GetArgumentNames() (args []string)
 }
 
 func generateLocalizations(locs []Localization) (files []*ast.File) {
