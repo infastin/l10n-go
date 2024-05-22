@@ -7,7 +7,7 @@ import (
 	"github.com/infastin/go-l10n/ast"
 )
 
-const cliVersion = "v1.0.3"
+const cliVersion = "v1.0.4"
 
 var Config struct {
 	Directory         string

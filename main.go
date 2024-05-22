@@ -31,8 +31,12 @@ func GetLocalizationFiles() (files []LocalizationFile, err error) {
 	dfs := os.DirFS(common.Config.Directory)
 
 	err = fs.WalkDir(dfs, ".", func(name string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil {
 			return err
+		}
+
+		if d.IsDir() {
+			return fs.SkipDir
 		}
 
 		matches := common.Config.Pattern.FindStringSubmatch(name)
