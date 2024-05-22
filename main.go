@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"go/ast"
-	"io/fs"
 	"os"
 	"path"
 
@@ -28,29 +27,38 @@ type LocalizationFile struct {
 }
 
 func GetLocalizationFiles() (files []LocalizationFile, err error) {
-	dfs := os.DirFS(common.Config.Directory)
+	entries, err := os.ReadDir(common.Config.Directory)
+	if err != nil {
+		return nil, err
+	}
 
-	err = fs.WalkDir(dfs, ".", func(name string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
 		}
 
-		if d.IsDir() {
-			return fs.SkipDir
-		}
+		name := entry.Name()
 
 		matches := common.Config.Pattern.FindStringSubmatch(name)
 		if len(matches) == 0 {
-			return common.NewError(common.ErrInvalidFilename, common.ErrorValueStr(name), common.ErrorWrapped(common.ErrFilenameDoesNotMatch))
+			return nil, common.NewError(common.ErrInvalidFilename,
+				common.ErrorValueStr(name),
+				common.ErrorWrapped(common.ErrFilenameDoesNotMatch),
+			)
 		}
 
 		if len(matches) != 4 {
-			return common.NewError(common.ErrInvalidPattern, common.ErrorValueStr(common.Config.Pattern.String()))
+			return nil, common.NewError(common.ErrInvalidPattern,
+				common.ErrorValueStr(common.Config.Pattern.String()),
+			)
 		}
 
 		lang, err := language.Parse(matches[2])
 		if err != nil {
-			return common.NewError(common.ErrInvalidLanguage, common.ErrorValueStr(matches[1]), common.ErrorWrapped(err))
+			return nil, common.NewError(common.ErrInvalidLanguage,
+				common.ErrorValueStr(matches[1]),
+				common.ErrorWrapped(err),
+			)
 		}
 
 		files = append(files, LocalizationFile{
@@ -60,9 +68,7 @@ func GetLocalizationFiles() (files []LocalizationFile, err error) {
 			Lang:     lang,
 			Ext:      matches[3],
 		})
-
-		return nil
-	})
+	}
 
 	return files, err
 }
@@ -77,7 +83,10 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []scope.Localization,
 
 		data, err := os.ReadFile(file.Path)
 		if err != nil {
-			return nil, common.NewError(common.ErrCouldNotReadFile, common.ErrorValueStr(file.Filename), common.ErrorWrapped(err))
+			return nil, common.NewError(common.ErrCouldNotReadFile,
+				common.ErrorValueStr(file.Filename),
+				common.ErrorWrapped(err),
+			)
 		}
 
 		var unmarshaler func([]byte, any) error
@@ -95,12 +104,18 @@ func ReadLocalizationFiles(files []LocalizationFile) (locs []scope.Localization,
 
 		msgs, err := parse.UnmarshalMessages(data, unmarshaler)
 		if err != nil {
-			return nil, common.NewError(common.ErrCouldNotUnmarshalFile, common.ErrorValueStr(file.Filename), common.ErrorWrapped(err))
+			return nil, common.NewError(common.ErrCouldNotUnmarshalFile,
+				common.ErrorValueStr(file.Filename),
+				common.ErrorWrapped(err),
+			)
 		}
 
 		mss, err := process.ProcessMessages(msgs)
 		if err != nil {
-			return nil, common.NewError(common.ErrCouldNotParseFile, common.ErrorValueStr(file.Filename), common.ErrorWrapped(err))
+			return nil, common.NewError(common.ErrCouldNotParseFile,
+				common.ErrorValueStr(file.Filename),
+				common.ErrorWrapped(err),
+			)
 		}
 
 		locIdx := scope.LocalizationIndex(locs, file.Lang)
@@ -204,13 +219,19 @@ func CheckLocalizations(locs []scope.Localization) (err error) {
 func generateFile(locFile *ast.File, filename string) (err error) {
 	file, err := os.Create(filename)
 	if err != nil {
-		return common.NewError(common.ErrCouldNotCreateFile, common.ErrorValueStr(filename), common.ErrorWrapped(err))
+		return common.NewError(common.ErrCouldNotCreateFile,
+			common.ErrorValueStr(filename),
+			common.ErrorWrapped(err),
+		)
 	}
 	defer file.Close()
 
 	err = printer.FprintAstFile(file, locFile)
 	if err != nil {
-		return common.NewError(common.ErrCouldNotWriteToFile, common.ErrorValueStr(filename), common.ErrorWrapped(err))
+		return common.NewError(common.ErrCouldNotWriteToFile,
+			common.ErrorValueStr(filename),
+			common.ErrorWrapped(err),
+		)
 	}
 
 	return nil
@@ -221,7 +242,10 @@ func GenerateLocalizations(locs []scope.Localization) (err error) {
 
 	err = os.MkdirAll(common.Config.Output, 0755)
 	if err != nil {
-		return common.NewError(common.ErrCouldNotCreateDirectory, common.ErrorValueStr(common.Config.Output), common.ErrorWrapped(err))
+		return common.NewError(common.ErrCouldNotCreateDirectory,
+			common.ErrorValueStr(common.Config.Output),
+			common.ErrorWrapped(err),
+		)
 	}
 
 	filenames := []string{path.Join(common.Config.Output, "l10n.go")}
