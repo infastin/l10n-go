@@ -3,7 +3,7 @@
 package l10n
 
 type Localizer interface {
-	Hello(name int) string
+	Hello(name string) string
 }
 
 var mapLangToLocalizer = map[string]Localizer{
