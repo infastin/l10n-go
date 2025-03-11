@@ -4,7 +4,7 @@ import (
 	"regexp"
 
 	"github.com/alecthomas/kong"
-	"github.com/infastin/go-l10n/ast"
+	"github.com/infastin/l10n-go/ast"
 )
 
 const cliVersion = "v1.0.6"

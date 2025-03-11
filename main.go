@@ -7,13 +7,14 @@ import (
 	"os"
 	"path"
 
+	"github.com/infastin/l10n-go/codegen"
+	"github.com/infastin/l10n-go/common"
+	"github.com/infastin/l10n-go/parse"
+	"github.com/infastin/l10n-go/printer"
+	"github.com/infastin/l10n-go/process"
+	"github.com/infastin/l10n-go/scope"
+
 	"github.com/BurntSushi/toml"
-	"github.com/infastin/go-l10n/codegen"
-	"github.com/infastin/go-l10n/common"
-	"github.com/infastin/go-l10n/parse"
-	"github.com/infastin/go-l10n/printer"
-	"github.com/infastin/go-l10n/process"
-	"github.com/infastin/go-l10n/scope"
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 )
@@ -248,10 +249,10 @@ func GenerateLocalizations(locs []scope.Localization) (err error) {
 		)
 	}
 
-	filenames := []string{path.Join(common.Config.Output, "l10n.go")}
+	filenames := []string{path.Join(common.Config.Output, "l10n.gen.go")}
 
 	for i := 1; i < len(locFiles); i++ {
-		filename := locs[i-1].Name + "_" + locs[i-1].Lang.String() + ".go"
+		filename := locs[i-1].Name + "_" + locs[i-1].Lang.String() + ".gen.go"
 		filenames = append(filenames, path.Join(common.Config.Output, filename))
 	}
 

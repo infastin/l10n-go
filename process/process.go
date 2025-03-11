@@ -3,9 +3,9 @@ package process
 import (
 	"strings"
 
-	"github.com/infastin/go-l10n/ast"
-	"github.com/infastin/go-l10n/common"
-	"github.com/infastin/go-l10n/scope"
+	"github.com/infastin/l10n-go/ast"
+	"github.com/infastin/l10n-go/common"
+	"github.com/infastin/l10n-go/scope"
 )
 
 type FieldValue struct {

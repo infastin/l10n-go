@@ -6,8 +6,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/infastin/go-l10n/ast"
-	"github.com/infastin/go-l10n/common"
+	"github.com/infastin/l10n-go/ast"
+	"github.com/infastin/l10n-go/common"
 )
 
 func parseFormat(fmt string) (parts ast.FormatParts, err error) {

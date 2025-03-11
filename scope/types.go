@@ -3,7 +3,7 @@ package scope
 import (
 	"slices"
 
-	"github.com/infastin/go-l10n/ast"
+	"github.com/infastin/l10n-go/ast"
 	"golang.org/x/text/language"
 )
 

@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/infastin/go-l10n/ast"
-	"github.com/infastin/go-l10n/common"
+	"github.com/infastin/l10n-go/ast"
+	"github.com/infastin/l10n-go/common"
 )
 
 func UnmarshalMessages(in []byte, unmarshaler func(in []byte, out any) (err error),
