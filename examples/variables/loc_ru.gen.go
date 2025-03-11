@@ -20,10 +20,10 @@ func (ru_l ru_Localizer) YouAreLate_minutes(b0 *strings.Builder, count int)  {
 }
 
 func (ru_l ru_Localizer) YouAreLate(count int) string {
-	var b0 strings.Builder
+	b0 := new(strings.Builder)
 
 	b0.WriteString("Вы опоздали на ")
-	ru_l.YouAreLate_minutes(&b0, count)
+	ru_l.YouAreLate_minutes(b0, count)
 	b0.WriteString(".")
 
 	return b0.String()

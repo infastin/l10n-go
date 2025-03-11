@@ -347,16 +347,6 @@ func generateMessage(loc *scope.Localization, ms *scope.MessageScope, decls *[]g
 
 	loc.AddImport(ast.GoImport{Import: "strings", Package: "strings"})
 
-	builderSpec := &goast.ValueSpec{
-		Names: []*goast.Ident{
-			goast.NewIdent(builderName),
-		},
-		Type: &goast.SelectorExpr{
-			X:   goast.NewIdent("strings"),
-			Sel: goast.NewIdent("Builder"),
-		},
-	}
-
 	funcDecl := &goast.FuncDecl{
 		Name: goast.NewIdent(getMessageFuncName(ms)),
 		Recv: &goast.FieldList{
@@ -377,10 +367,21 @@ func generateMessage(loc *scope.Localization, ms *scope.MessageScope, decls *[]g
 		},
 		Body: &goast.BlockStmt{
 			List: []goast.Stmt{
-				&goast.DeclStmt{
-					Decl: &goast.GenDecl{
-						Tok:   gotoken.VAR,
-						Specs: []goast.Spec{builderSpec},
+				&goast.AssignStmt{
+					Lhs: []goast.Expr{
+						goast.NewIdent(builderName),
+					},
+					Tok: gotoken.DEFINE,
+					Rhs: []goast.Expr{
+						&goast.CallExpr{
+							Fun: goast.NewIdent("new"),
+							Args: []goast.Expr{
+								&goast.SelectorExpr{
+									X:   goast.NewIdent("strings"),
+									Sel: goast.NewIdent("Builder"),
+								},
+							},
+						},
 					},
 				},
 			},
@@ -598,6 +599,18 @@ func generateArgument(
 	builderName string,
 	list *[]goast.Stmt,
 ) {
+	if info.FmtInfo.HasOptions() {
+		generateArgumentFormat(loc, arg, info, builderName, list)
+		return
+	}
+
+	switch arg.GoType.Type {
+	case "string", "int", "float64", "Stringer":
+	default:
+		generateArgumentAny(loc, arg, builderName, list)
+		return
+	}
+
 	callExpr := &goast.CallExpr{
 		Fun: &goast.SelectorExpr{
 			X:   goast.NewIdent(builderName),
@@ -609,11 +622,6 @@ func generateArgument(
 		X: callExpr,
 	})
 
-	if info.FmtInfo.HasOptions() {
-		generateArgumentSprintf(loc, arg, info, callExpr)
-		return
-	}
-
 	switch arg.GoType.Type {
 	case "string":
 		callExpr.Args = []goast.Expr{goast.NewIdent(arg.Name)}
@@ -623,8 +631,6 @@ func generateArgument(
 		generateArgumentFormatFloat(loc, arg, callExpr)
 	case "Stringer":
 		generateArgumentStringer(loc, arg, callExpr)
-	default:
-		generateArgumentSprint(loc, arg, callExpr)
 	}
 }
 
@@ -639,30 +645,34 @@ func generateArgumentStringer(_ *scope.Localization, arg *scope.Argument, callEx
 	}
 }
 
-func generateArgumentSprintf(
+func generateArgumentFormat(
 	loc *scope.Localization,
 	arg *scope.Argument,
 	info *ast.ArgInfo,
-	callExpr *goast.CallExpr,
+	builderName string,
+	list *[]goast.Stmt,
 ) {
 	fmtStr := info.FmtInfo.GoFormat(arg.GoType)
 	loc.AddImport(ast.GoImport{Import: "fmt", Package: "fmt"})
 
-	callExpr.Args = []goast.Expr{
-		&goast.CallExpr{
-			Fun: &goast.SelectorExpr{
-				X:   goast.NewIdent("fmt"),
-				Sel: goast.NewIdent("Sprintf"),
+	callExpr := &goast.CallExpr{
+		Fun: &goast.SelectorExpr{
+			X:   goast.NewIdent("fmt"),
+			Sel: goast.NewIdent("Fprintf"),
+		},
+		Args: []goast.Expr{
+			goast.NewIdent(builderName),
+			&goast.BasicLit{
+				Kind:  gotoken.STRING,
+				Value: strconv.Quote(fmtStr),
 			},
-			Args: []goast.Expr{
-				&goast.BasicLit{
-					Kind:  gotoken.STRING,
-					Value: strconv.Quote(fmtStr),
-				},
-				goast.NewIdent(arg.Name),
-			},
+			goast.NewIdent(arg.Name),
 		},
 	}
+
+	*list = append(*list, &goast.ExprStmt{
+		X: callExpr,
+	})
 }
 
 func generateArgumentItoa(loc *scope.Localization, arg *scope.Argument, callExpr *goast.CallExpr) {
@@ -705,17 +715,28 @@ func generateArgumentFormatFloat(loc *scope.Localization, arg *scope.Argument, c
 	}
 }
 
-func generateArgumentSprint(loc *scope.Localization, arg *scope.Argument, callExpr *goast.CallExpr) {
+func generateArgumentAny(
+	loc *scope.Localization,
+	arg *scope.Argument,
+	builderName string,
+	list *[]goast.Stmt,
+) {
 	loc.AddImport(ast.GoImport{Import: "fmt", Package: "fmt"})
-	callExpr.Args = []goast.Expr{
-		&goast.CallExpr{
-			Fun: &goast.SelectorExpr{
-				X:   goast.NewIdent("fmt"),
-				Sel: goast.NewIdent("Sprint"),
-			},
-			Args: []goast.Expr{goast.NewIdent(arg.Name)},
+
+	callExpr := &goast.CallExpr{
+		Fun: &goast.SelectorExpr{
+			X:   goast.NewIdent("fmt"),
+			Sel: goast.NewIdent("Fprint"),
+		},
+		Args: []goast.Expr{
+			goast.NewIdent(builderName),
+			goast.NewIdent(arg.Name),
 		},
 	}
+
+	*list = append(*list, &goast.ExprStmt{
+		X: callExpr,
+	})
 }
 
 func generateVariableCall(
@@ -731,10 +752,7 @@ func generateVariableCall(
 			Sel: goast.NewIdent(getVariableFuncName(ms, variable)),
 		},
 		Args: []goast.Expr{
-			&goast.UnaryExpr{
-				Op: gotoken.AND,
-				X:  goast.NewIdent(builderName),
-			},
+			goast.NewIdent(builderName),
 		},
 	}
 

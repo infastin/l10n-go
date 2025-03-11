@@ -10,10 +10,10 @@ import (
 type en_Localizer struct{}
 
 func (en_l en_Localizer) BankAccount(money float64) string {
-	var b0 strings.Builder
+	b0 := new(strings.Builder)
 
 	b0.WriteString("You have $")
-	b0.WriteString(fmt.Sprintf("%+.3f", money))
+	fmt.Fprintf(b0, "%+.3f", money)
 	b0.WriteString(" dollars in your bank account.")
 
 	return b0.String()

@@ -530,18 +530,27 @@ func (p *astPrinter) writeBlockStmt(b *ast.BlockStmt) {
 	p.b.WriteString("{\n")
 
 	next := p.next()
+	prevAssign := false
+
 	for i, stmt := range b.List {
-		if _, ok := stmt.(*ast.ReturnStmt); ok && i != 0 && len(b.List) != 2 {
-			next.b.WriteByte('\n')
+		switch stmt.(type) {
+		case *ast.ReturnStmt:
+			if i != 0 && len(b.List) != 2 {
+				next.b.WriteByte('\n')
+			}
+			prevAssign = false
+		case *ast.AssignStmt, *ast.DeclStmt:
+			prevAssign = true
+		default:
+			if prevAssign {
+				next.b.WriteByte('\n')
+			}
+			prevAssign = false
 		}
 
 		next.indentLine()
 		next.writeStmt(stmt)
 		next.b.WriteByte('\n')
-
-		if _, ok := stmt.(*ast.DeclStmt); ok && i != len(b.List)-1 {
-			next.b.WriteByte('\n')
-		}
 	}
 
 	p.indentLine()

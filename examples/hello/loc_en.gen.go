@@ -2,15 +2,18 @@
 
 package l10n
 
-import "strings"
+import (
+	"strings"
+	"strconv"
+)
 
 type en_Localizer struct{}
 
-func (en_l en_Localizer) Hello(name string) string {
-	var b0 strings.Builder
+func (en_l en_Localizer) Hello(name int) string {
+	b0 := new(strings.Builder)
 
 	b0.WriteString("Hello, ")
-	b0.WriteString(name)
+	b0.WriteString(strconv.Itoa(name))
 	b0.WriteString("!")
 
 	return b0.String()

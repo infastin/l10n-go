@@ -15,7 +15,7 @@ var Config struct {
 	Output            string
 	Pattern           regexp.Regexp
 	FormatSpecifiers  []rune
-	SpecifierToGoType map[rune]ast.GoType
+	SpecifierToGoType [255]ast.GoType
 	Imports           []ast.GoImport
 }
 
@@ -42,16 +42,38 @@ func InitConfig() {
 	Config.PackageName = cli.Package
 	Config.Output = cli.Output
 
-	Config.FormatSpecifiers = []rune{'s', 'd', 'f', 'S', 'F', 'M'}
-	Config.SpecifierToGoType = map[rune]ast.GoType{
-		's': {Type: "string"},
-		'd': {Type: "int"},
-		'f': {Type: "float64"},
-		'v': {Type: "any"},
-		'S': {
+	anySpecifiers := [...]byte{'v'}
+	intSpecifiers := [...]byte{'b', 'd', 'o', 'O', 'x', 'X'}
+	floatSpecifiers := [...]byte{'f', 'F', 'e', 'E', 'g', 'G'}
+	stringSpecifiers := [...]byte{'s', 'q'}
+	stringerSpecifiers := [...]byte{'S'}
+
+	for _, spec := range anySpecifiers {
+		Config.FormatSpecifiers = append(Config.FormatSpecifiers, rune(spec))
+		Config.SpecifierToGoType[spec] = ast.GoType{Type: "any"}
+	}
+
+	for _, spec := range intSpecifiers {
+		Config.FormatSpecifiers = append(Config.FormatSpecifiers, rune(spec))
+		Config.SpecifierToGoType[spec] = ast.GoType{Type: "int"}
+	}
+
+	for _, spec := range floatSpecifiers {
+		Config.FormatSpecifiers = append(Config.FormatSpecifiers, rune(spec))
+		Config.SpecifierToGoType[spec] = ast.GoType{Type: "float64"}
+	}
+
+	for _, spec := range stringSpecifiers {
+		Config.FormatSpecifiers = append(Config.FormatSpecifiers, rune(spec))
+		Config.SpecifierToGoType[spec] = ast.GoType{Type: "string"}
+	}
+
+	for _, spec := range stringerSpecifiers {
+		Config.FormatSpecifiers = append(Config.FormatSpecifiers, rune(spec))
+		Config.SpecifierToGoType[spec] = ast.GoType{
 			Import:  "fmt",
 			Package: "fmt",
 			Type:    "Stringer",
-		},
+		}
 	}
 }
