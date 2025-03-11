@@ -42,38 +42,15 @@ func InitConfig() {
 	Config.PackageName = cli.Package
 	Config.Output = cli.Output
 
-	anySpecifiers := [...]byte{'v'}
-	intSpecifiers := [...]byte{'b', 'd', 'o', 'O', 'x', 'X'}
-	floatSpecifiers := [...]byte{'f', 'F', 'e', 'E', 'g', 'G'}
-	stringSpecifiers := [...]byte{'s', 'q'}
-	stringerSpecifiers := [...]byte{'S'}
+	Config.FormatSpecifiers = []rune{'v', 'd', 'f', 's', 'S'}
 
-	for _, spec := range anySpecifiers {
-		Config.FormatSpecifiers = append(Config.FormatSpecifiers, rune(spec))
-		Config.SpecifierToGoType[spec] = ast.GoType{Type: "any"}
-	}
-
-	for _, spec := range intSpecifiers {
-		Config.FormatSpecifiers = append(Config.FormatSpecifiers, rune(spec))
-		Config.SpecifierToGoType[spec] = ast.GoType{Type: "int"}
-	}
-
-	for _, spec := range floatSpecifiers {
-		Config.FormatSpecifiers = append(Config.FormatSpecifiers, rune(spec))
-		Config.SpecifierToGoType[spec] = ast.GoType{Type: "float64"}
-	}
-
-	for _, spec := range stringSpecifiers {
-		Config.FormatSpecifiers = append(Config.FormatSpecifiers, rune(spec))
-		Config.SpecifierToGoType[spec] = ast.GoType{Type: "string"}
-	}
-
-	for _, spec := range stringerSpecifiers {
-		Config.FormatSpecifiers = append(Config.FormatSpecifiers, rune(spec))
-		Config.SpecifierToGoType[spec] = ast.GoType{
-			Import:  "fmt",
-			Package: "fmt",
-			Type:    "Stringer",
-		}
+	Config.SpecifierToGoType['v'] = ast.GoType{Type: "any"}
+	Config.SpecifierToGoType['d'] = ast.GoType{Type: "int"}
+	Config.SpecifierToGoType['f'] = ast.GoType{Type: "float64"}
+	Config.SpecifierToGoType['s'] = ast.GoType{Type: "string"}
+	Config.SpecifierToGoType['S'] = ast.GoType{
+		Import:  "fmt",
+		Package: "fmt",
+		Type:    "Stringer",
 	}
 }

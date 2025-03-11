@@ -51,10 +51,10 @@ In order to escape `$` just write it twice.
 
 All arguments are strings by default.
 But you can change it by prefixing argument name with one of the following formats:
-- `s:` — `string`
-- `f:` — `float64`
-- `d:` — `int`
 - `v:` - `any`
+- `d:` — `int`
+- `f:` — `float64`
+- `s:` — `string`
 - `S:` — `fmt.Stringer`
 
 You can also format arguments using format specification similar to Golang's `fmt` package.

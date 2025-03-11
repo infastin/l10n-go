@@ -604,9 +604,7 @@ func generateArgument(
 		return
 	}
 
-	switch arg.GoType.Type {
-	case "string", "int", "float64", "Stringer":
-	default:
+	if arg.GoType.Type == "any" {
 		generateArgumentAny(loc, arg, builderName, list)
 		return
 	}
