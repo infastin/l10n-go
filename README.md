@@ -154,6 +154,11 @@ Put this somewhere in your codebase:
 //go:generate go run github.com/infastin/l10n-go -d YOUR_DIRECTORY -o YOUR_DIRECTORY
 ```
 
+Or this after go1.24:
+```go
+//go:generate go tool github.com/infastin/l10n-go -d YOUR_DIRECTORY -o YOUR_DIRECTORY
+```
+
 And run:
 ```console
 $ go generate ./...
